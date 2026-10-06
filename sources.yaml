@@ -1,0 +1,91 @@
+# Источники новостей.
+#   id       — уникальный идентификатор источника (не менять после запуска: по нему хранятся новости)
+#   type     — тип источника: rss
+#   interval — период опроса в секундах (по умолчанию POLL_INTERVAL)
+#   enabled  — false, чтобы отключить (так же добавляются кандидаты: сервис их не опрашивает,
+#              а scripts/preview_source.py проверяет)
+#   skip_urls — регулярное выражение или список: новости с такими ссылками не сохраняются
+#   only_categories — рубрика или список: сохраняются только новости, у которых в ленте есть одна из них
+#                     (регистр не важен)
+#   content  — как получить полный текст:
+#     strategy: from_source            — текст уже есть в ленте (content:encoded)
+#     strategy: css, selector: "..."   — скачать страницу и взять блок по CSS-селектору
+#   Очистка полученного HTML (для любой стратегии):
+#     exclude: [селекторы]             — удалить элементы по CSS-селекторам
+#     drop_link_only: true             — удалить абзацы, состоящие только из ссылок
+#     drop_before: {target, text_in}   — удалить блоки подряд перед target, весь текст которых внутри text_in
+#   categories — рубрики со страницы новости (добавляются к категориям из ленты; +1 запрос на новость):
+#     selector: "..."                  — CSS-селектор или список; значение — атрибут content (у <meta>) или текст
+
+- id: meduza
+  type: rss
+  url: https://meduza.io/rss/all
+  # Лонгриды и карточки не нужны — только новости.
+  skip_urls:
+    - ^https://meduza\.io/feature/
+    - ^https://meduza\.io/slides/
+  content:
+    strategy: from_source
+    # Встраивания соцсетей: без их скрипта в текст попадает запасной текст поста.
+    exclude:
+      - blockquote.twitter-tweet
+      - blockquote.instagram-media
+      - blockquote.tiktok-embed
+      # Подписи к картинкам — не текст статьи.
+      - figcaption
+      # Блоки связанных материалов: заголовок h4 («Читайте также» и т.п.) и сразу за ним список ссылок.
+      - "h4:has(+ ul)"
+      - "h4 + ul"
+
+- id: sports_ru
+  type: rss
+  url: https://www.sports.ru/rss/all_news.xml
+  # В ленте всего 20 записей, а публикуют 30–50 в час — при опросе раз в час новости теряются.
+  interval: 600
+  content:
+    strategy: css
+    selector: .news-content__structured-body-wrapper
+    # В тело статьи вставлены абзацы-ссылки: «читайте также», календари, реклама.
+    drop_link_only: true
+    # Виджеты матчей (счёт, xG, хронология, составы) — не текст статьи.
+    exclude: '[type$="-match"]'
+    # Жирные подзаголовки перед виджетами: «Лига наций», «Групповой этап», «4-й тур».
+    drop_before:
+      target: '[type$="-match"]'
+      text_in: .sb-text--bold
+
+- id: ixbt
+  type: rss
+  url: https://www.ixbt.com/export/news.rss
+  # В ленте рубрик нет — берём со страницы.
+  categories:
+    selector: 'meta[property="article:section"]'
+  content:
+    strategy: from_source
+    # Подписи к картинкам — почти всегда «Источник изображения: …».
+    exclude: figcaption
+
+- id: habr
+  type: rss
+  url: https://habr.com/ru/rss/news/
+  content:
+    strategy: css
+    selector: "#post-content-body"
+    # Подписи к картинкам — не текст статьи.
+    exclude: figcaption
+
+- id: snob
+  type: rss
+  url: https://snob.ru/rss/
+  # Только новости: у статей (культура, кино, «Сделано в России» и т.п.) другие рубрики.
+  only_categories: Новости
+  content:
+    strategy: from_source
+
+- id: knife
+  type: rss
+  url: https://knife.media/feed/
+  # Кандидат: проверяется scripts/preview_source.py.
+  enabled: false
+  content:
+    strategy: from_source

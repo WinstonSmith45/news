@@ -1,0 +1,7 @@
+# В образ копируются только news_parser/, requirements.txt и sources.yaml — остальное не нужно в контексте сборки.
+.venv/
+.env
+__pycache__/
+*.pyc
+*.txt
+!requirements.txt
