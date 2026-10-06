@@ -20,6 +20,7 @@ class NewsItem:
 
 
 class ContentStatus:
+    # Допустимые значения закреплены в БД (CHECK news_content_status_check): новый статус — через миграцию.
     OK = "ok"
     PENDING = "pending"
     FAILED = "failed"
