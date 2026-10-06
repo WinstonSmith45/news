@@ -7,47 +7,6 @@ from psycopg_pool import ConnectionPool
 from news_parser.models import ContentStatus, NewsItem
 from news_parser.storage.base import Storage
 
-SCHEMA = """
-CREATE EXTENSION IF NOT EXISTS vector;
-
-CREATE TABLE IF NOT EXISTS news (
-    id               bigserial PRIMARY KEY,
-    source_id        text NOT NULL,
-    source_type      text NOT NULL,
-    external_id      text NOT NULL,
-    url              text,
-    title            text,
-    content_html     text,
-    content_text     text,
-    categories       text[] NOT NULL DEFAULT '{}',
-    published_at     timestamptz,
-    content_status   text NOT NULL,
-    content_attempts int  NOT NULL DEFAULT 1,
-    content_error    text,
-    updated_at       timestamptz NOT NULL DEFAULT now(),
-    -- Полнотекстовый поиск: заголовок важнее текста.
-    search_vector    tsvector GENERATED ALWAYS AS (
-        setweight(to_tsvector('russian', coalesce(title, '')), 'A') ||
-        setweight(to_tsvector('russian', coalesce(content_text, '')), 'C')
-    ) STORED,
-    UNIQUE (source_id, external_id)
-);
-
-CREATE INDEX IF NOT EXISTS news_source_published_idx ON news (source_id, published_at DESC);
-CREATE INDEX IF NOT EXISTS news_published_idx ON news (published_at DESC);
-CREATE INDEX IF NOT EXISTS news_pending_idx ON news (source_id, id)
-    WHERE content_status = 'pending';
-CREATE INDEX IF NOT EXISTS news_search_idx ON news USING gin (search_vector);
-CREATE INDEX IF NOT EXISTS news_categories_idx ON news USING gin (categories);
-
-CREATE TABLE IF NOT EXISTS source_state (
-    source_id   text PRIMARY KEY,
-    state       jsonb NOT NULL DEFAULT '{}',
-    last_run    jsonb,
-    last_run_at timestamptz
-);
-"""
-
 ITEM_COLUMNS = [
     "source_id", "source_type", "external_id", "url", "title", "content_html",
     "content_text", "categories", "published_at",
@@ -65,10 +24,6 @@ class PostgresStorage(Storage):
             check=ConnectionPool.check_connection,
             open=True,
         )
-
-    def ensure_schema(self) -> None:
-        with self._pool.connection() as conn:
-            conn.execute(SCHEMA)
 
     def close(self) -> None:
         self._pool.close()

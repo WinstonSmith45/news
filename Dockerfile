@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY news_parser ./news_parser
-COPY sources.yaml .
+COPY sources.yaml alembic.ini ./
 
 RUN useradd --system --no-create-home app
 USER app

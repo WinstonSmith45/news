@@ -9,10 +9,6 @@ RecordId = Any
 
 class Storage(ABC):
     @abstractmethod
-    def ensure_schema(self) -> None:
-        """Создать таблицы/индексы, если их ещё нет."""
-
-    @abstractmethod
     def close(self) -> None: ...
 
     @abstractmethod

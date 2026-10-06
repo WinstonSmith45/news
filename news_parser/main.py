@@ -7,6 +7,7 @@ from news_parser.categories import create_category_fetcher
 from news_parser.config import ConfigError, Settings, load_sources
 from news_parser.extractors import create_extractor
 from news_parser.http_client import HttpClient
+from news_parser.migrate import run_migrations
 from news_parser.service import Service, SourceRunner, make_interruptible_sleep
 from news_parser.sources import create_source
 from news_parser.storage import PostgresStorage
@@ -54,9 +55,14 @@ def main() -> int:
         logger.error("ошибка конфигурации источников: %s", e)
         return 2
 
+    try:
+        run_migrations(settings.database_url)
+    except Exception:
+        logger.exception("не удалось применить миграции БД")
+        return 1
+
     storage = PostgresStorage(settings.database_url)
     try:
-        storage.ensure_schema()
         Service(
             runners,
             storage,

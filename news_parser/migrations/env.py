@@ -1,0 +1,43 @@
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import create_engine, pool
+from sqlalchemy.engine import URL, make_url
+
+from news_parser.config import Settings
+
+config = context.config
+
+# Из командной строки — логирование из alembic.ini; из парсера (без ini) его настраивает сам парсер.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+
+def database_url() -> URL:
+    # Парсер передаёт адрес сам, CLI берёт его из DATABASE_URL.
+    url = config.attributes.get("database_url") or Settings.from_env().database_url
+    # postgresql:// по умолчанию означает psycopg2, а установлен psycopg 3.
+    return make_url(url).set(drivername="postgresql+psycopg")
+
+
+def run_migrations_offline() -> None:
+    context.configure(url=database_url(), literal_binds=True)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    engine = create_engine(database_url(), poolclass=pool.NullPool)
+    try:
+        with engine.connect() as connection:
+            context.configure(connection=connection)
+            with context.begin_transaction():
+                context.run_migrations()
+    finally:
+        engine.dispose()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
