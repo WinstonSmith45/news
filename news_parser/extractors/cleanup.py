@@ -8,6 +8,8 @@ from news_parser.config import ConfigError
 
 # Блоки, которые удаляются опцией drop_link_only.
 LINK_ONLY_TAGS = ["p", "li"]
+# Блоки, которые удаляются опцией drop_text.
+DROP_TEXT_TAGS = ["p", "li"]
 # Значимый текст — хотя бы одна буква или цифра (пробелы, пунктуация и эмодзи вроде «➡» не в счёт).
 MEANINGFUL = re.compile(r"\w")
 
@@ -18,6 +20,8 @@ class Cleaner:
     Параметры (в секции content источника):
       exclude        — CSS-селектор или список селекторов: удалить совпавшие элементы;
       drop_link_only — удалить абзацы, весь текст которых — ссылки («читайте также» и т.п.);
+      drop_text      — регулярное выражение или список: удалить абзацы, в тексте которых оно найдено
+                       (re.search; «^» — начало абзаца, например подписи «^Фото: »);
       drop_before    — {target, text_in}: удалить идущие подряд прямо перед элементом target блоки,
                        весь текст которых внутри text_in (например, жирные подзаголовки перед виджетом).
     """
@@ -33,6 +37,14 @@ class Cleaner:
         self.drop_link_only = options.get("drop_link_only", False)
         if not isinstance(self.drop_link_only, bool):
             raise ConfigError("drop_link_only должен быть true или false")
+        drop_text = options.get("drop_text") or []
+        drop_text = [drop_text] if isinstance(drop_text, str) else list(drop_text)
+        self.drop_text = []
+        for pattern in drop_text:
+            try:
+                self.drop_text.append(re.compile(pattern))
+            except (re.error, TypeError) as e:
+                raise ConfigError(f"drop_text: некорректное регулярное выражение {pattern!r}: {e}") from None
         drop_before = options.get("drop_before") or {}
         if drop_before:
             if not isinstance(drop_before, dict) or not drop_before.get("target") or not drop_before.get("text_in"):
@@ -46,7 +58,7 @@ class Cleaner:
 
     @property
     def enabled(self) -> bool:
-        return bool(self.exclude) or self.drop_link_only or bool(self.drop_before)
+        return bool(self.exclude) or self.drop_link_only or bool(self.drop_text) or bool(self.drop_before)
 
     def clean(self, html: str) -> str:
         if not self.enabled:
@@ -64,6 +76,8 @@ class Cleaner:
             if not el.decomposed:
                 el.decompose()
                 removed += 1
+        if self.drop_text:
+            removed += drop_text_blocks(root, self.drop_text)
         if self.drop_link_only:
             removed += drop_link_only_blocks(root)
         # Ничего не удалили — отдаём исходный HTML, а не пересобранный парсером.
@@ -79,6 +93,19 @@ def drop_link_only_blocks(node: Tag) -> int:
         if block.decomposed:
             continue
         if is_link_only(block):
+            block.decompose()
+            removed += 1
+    return removed
+
+
+def drop_text_blocks(node: Tag, patterns: list[re.Pattern]) -> int:
+    removed = 0
+    for block in node.find_all(DROP_TEXT_TAGS):
+        # Блок мог уже удалиться вместе с родителем (p внутри li).
+        if block.decomposed:
+            continue
+        text = block.get_text().strip()
+        if any(pattern.search(text) for pattern in patterns):
             block.decompose()
             removed += 1
     return removed

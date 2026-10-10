@@ -8,6 +8,7 @@ import feedparser
 
 from news_parser.models import NewsItem
 from news_parser.sources.base import FetchResult, Source, register_source
+from news_parser.text import clean_title
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ class RssSource(Source):
             source_type=self.type,
             external_id=external_id,
             url=link,
-            title=entry.get("title"),
+            title=clean_title(entry.get("title")),
             content_html=content or None,
             categories=[t["term"] for t in entry.get("tags", []) if t.get("term")],
             published_at=_to_datetime(entry),
