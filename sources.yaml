@@ -85,7 +85,12 @@
 - id: knife
   type: rss
   url: https://knife.media/feed/
-  # Кандидат: проверяется scripts/preview_source.py.
-  enabled: false
+  # Только новости: у статей рубрика «Статьи».
+  only_categories: Новости
   content:
     strategy: from_source
+    exclude:
+      # Подписи к картинкам — не текст статьи.
+      - figcaption
+      # Концовка «Читайте больше актуальных новостей тут» (ссылка — только «тут»).
+      - 'p:-soup-contains("Читайте больше актуальных новостей")'
