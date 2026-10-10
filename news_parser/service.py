@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 def is_skipped(config: SourceConfig, item: NewsItem) -> bool:
-    """Новость не нужна: ссылка подходит под skip_urls или нет ни одной рубрики из only_categories."""
+    """Новость не нужна: ссылка подходит под skip_urls, есть рубрика из skip_categories
+    или нет ни одной рубрики из only_categories."""
     if item.url and any(p.search(item.url) for p in config.skip_urls):
+        return True
+    if config.skip_categories and any(c.strip().casefold() in config.skip_categories for c in item.categories):
         return True
     if config.only_categories:
         return not any(c.strip().casefold() in config.only_categories for c in item.categories)
@@ -92,7 +95,7 @@ class Service:
             state = self._storage.get_state(source_id)
             result = runner.source.fetch(state)
 
-            # Убираем дубли внутри выдачи, ненужное (skip_urls, only_categories) и то, что уже есть в базе.
+            # Убираем дубли внутри выдачи, ненужное (skip_urls, skip_categories, only_categories) и то, что уже есть в базе.
             unique = list({item.external_id: item for item in result.items}.values())
             wanted = [i for i in unique if not is_skipped(runner.config, i)]
             skipped = len(unique) - len(wanted)

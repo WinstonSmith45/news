@@ -58,6 +58,8 @@ class SourceConfig:
     skip_urls: tuple[re.Pattern[str], ...] = ()
     # Если задано — сохраняются только новости, у которых есть хотя бы одна из этих рубрик ленты.
     only_categories: frozenset[str] = frozenset()
+    # Новости, у которых есть хотя бы одна из этих рубрик ленты, не сохраняются.
+    skip_categories: frozenset[str] = frozenset()
     # Все остальные ключи — параметры конкретного типа источника (например, url для rss).
     options: dict[str, Any] = field(default_factory=dict)
 
@@ -92,17 +94,18 @@ def load_sources(path: Path, default_interval: int) -> list[SourceConfig]:
                 content=entry.pop("content", None) or {},
                 categories=entry.pop("categories", None) or {},
                 skip_urls=_compile_patterns(source_id, entry.pop("skip_urls", None)),
-                only_categories=_categories(source_id, entry.pop("only_categories", None)),
+                only_categories=_categories(source_id, "only_categories", entry.pop("only_categories", None)),
+                skip_categories=_categories(source_id, "skip_categories", entry.pop("skip_categories", None)),
                 options=entry,
             )
         )
     return configs
 
 
-def _categories(source_id: str, raw: Any) -> frozenset[str]:
+def _categories(source_id: str, option: str, raw: Any) -> frozenset[str]:
     values = [raw] if isinstance(raw, str) else list(raw or [])
     if not all(isinstance(v, str) and v.strip() for v in values):
-        raise ConfigError(f"источник {source_id}: only_categories — строка или список непустых строк")
+        raise ConfigError(f"источник {source_id}: {option} — строка или список непустых строк")
     return frozenset(v.strip().casefold() for v in values)
 
 

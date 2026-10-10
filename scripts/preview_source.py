@@ -51,7 +51,7 @@ def main() -> int:
         return 2
 
     items = source.fetch({}).items
-    # Как в сервисе: дубли внутри выдачи и отфильтрованное (skip_urls, only_categories) отбрасываются.
+    # Как в сервисе: дубли внутри выдачи и отфильтрованное (skip_urls, skip_categories, only_categories) отбрасываются.
     items = list({i.external_id: i for i in items}.values())
     skipped = [i for i in items if is_skipped(cfg, i)]
     items = [i for i in items if i not in skipped][: args.n]
