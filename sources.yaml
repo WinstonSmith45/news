@@ -1,6 +1,7 @@
 # Источники новостей.
 #   id       — уникальный идентификатор источника (не менять после запуска: по нему хранятся новости)
 #   type     — тип источника: rss
+#   only_genres — (rss) жанр или список: только записи с таким <yandex:genre> (message — новости, article — статьи)
 #   interval — период опроса в секундах (по умолчанию POLL_INTERVAL)
 #   enabled  — false, чтобы отключить (так же добавляются кандидаты: сервис их не опрашивает,
 #              а scripts/preview_source.py проверяет)
@@ -143,3 +144,15 @@
       - '^Сообщение .* появилось сначала на Frank Media'
       # Источник фото в конце текста: «Фото на обложке: … / Shutterstock», «Фото: Unsplash».
       - '^Фото( на обложке)?:'
+
+- id: indicator
+  type: rss
+  url: https://indicator.ru/exports/rss
+  # Рубрики тематические; тип материала — в <yandex:genre>: message — новости, article — статьи и интервью.
+  only_genres: message
+  content:
+    strategy: from_source
+    # Подписи к картинкам с источником (span.copyright) — не текст статьи.
+    exclude: figcaption
+    # Подпись автора в конце: «Текст: Альфия Тимошенко».
+    drop_text: '^Текст: '

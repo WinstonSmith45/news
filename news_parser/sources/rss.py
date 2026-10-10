@@ -6,6 +6,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import feedparser
 
+from news_parser.config import ConfigError
 from news_parser.models import NewsItem
 from news_parser.sources.base import FetchResult, Source, register_source
 from news_parser.text import clean_title
@@ -36,9 +37,21 @@ def _to_datetime(entry: Any) -> datetime | None:
 
 @register_source
 class RssSource(Source):
-    """Параметры в sources.yaml: url — адрес RSS/Atom-ленты."""
+    """Параметры в sources.yaml:
+      url         — адрес RSS/Atom-ленты;
+      only_genres — жанр или список: брать только записи с таким <yandex:genre> (регистр не важен),
+                    например message — новости, article — статьи. Записи без жанра отбрасываются.
+    """
 
     type = "rss"
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        raw = self.config.options.get("only_genres")
+        genres = [raw] if isinstance(raw, str) else list(raw or [])
+        if not all(isinstance(g, str) and g.strip() for g in genres):
+            raise ConfigError(f"источник {self.id}: only_genres — строка или список непустых строк")
+        self.only_genres = frozenset(g.strip().casefold() for g in genres)
 
     def fetch(self, state: dict[str, Any]) -> FetchResult:
         url = self.option("url")
@@ -50,12 +63,18 @@ class RssSource(Source):
             raise ValueError(f"не удалось разобрать ленту {url}: {feed.bozo_exception}")
 
         items = []
+        skipped_genre = 0
         for entry in feed.entries:
+            if self.only_genres and (entry.get("yandex_genre") or "").strip().casefold() not in self.only_genres:
+                skipped_genre += 1
+                continue
             item = self._to_item(entry)
             if item is None:
                 logger.warning("%s: пропущена запись без ссылки и guid: %s", self.id, entry.get("title"))
                 continue
             items.append(item)
+        if skipped_genre:
+            logger.debug("%s: пропущено по жанру (only_genres): %d", self.id, skipped_genre)
         return FetchResult(items=items, state=state)
 
     def _to_item(self, entry: Any) -> NewsItem | None:
